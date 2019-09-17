@@ -20,6 +20,8 @@ $ cmake .. -DDEVICE_NAME=vcu118 -DTCP_STACK_EN=1 -DVIVADO_ROOT_DIR=/opt/Xilinx/V
 
 ```
 All options:
+
+| --------------------- | --------------------- | ----------------------------------------------------------------------- |
 | Name                  | Values                | Desription                                                              |
 | DEVICE_NAME           | <vc709,vcu118,adm7v3> | Supported devices                                                       |
 | NETWORK_BANDWIDTH     | <10,100>              | Bandwidth of the Ethernet interface in Gbit/s, default depends on board |
