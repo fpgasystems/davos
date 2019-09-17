@@ -1,0 +1,59 @@
+
+*.zip
+
+# temp files
+tmp/
+*.tmp
+*.bak
+*.swp
+*~
+.*
+*.dat
+*.out
+
+#driver
+*.ko
+*.o
+*.mod.c
+*.symvers
+*.order
+
+#log files
+*.log
+*.debug
+*.jou
+vivado_pid*.str
+
+# hls projects
+solution*/
+*.app
+*.xml
+.apc/
+.cproject
+.project
+.settings/
+
+#vivado ip files
+*.xml
+#hdl/
+misc/
+sim/
+synth/
+simulation/
+doc/
+*_stub.v
+*_stub.vhdl
+*_funcsim.v
+*_funcsim.vhdl
+*.upgrade_log
+*sim_netlist.v
+*sim_netlist.vhdl
+*.xdc
+*.xci
+*.vho
+*.veo
+#checkpoints
+*.dcp
+
+# wireshar
+*.pcapng

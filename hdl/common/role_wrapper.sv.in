@@ -1,0 +1,223 @@
+/*
+ * Copyright (c) 2019, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ * may be used to endorse or promote products derived from this software
+ * without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+`timescale 1ns / 1ps
+`default_nettype none
+
+module role_wrapper #(
+    parameter NUM_ROLE_DDR_CHANNELS = 0
+) (
+    input wire      net_clk,
+    input wire      net_aresetn,
+    input wire      pcie_clk,
+    input wire      pcie_aresetn,
+    
+    output logic    user_clk,
+    output logic    user_aresetn,
+
+
+    /* CONTROL INTERFACE */
+    axi_lite.slave      s_axil,
+
+    /* NETWORK  - TCP/IP INTERFACE */
+    // open port for listening
+    axis_meta.master    m_axis_listen_port,
+    axis_meta.slave     s_axis_listen_port_status,
+   
+    axis_meta.master    m_axis_open_connection,
+    axis_meta.slave     s_axis_open_status,
+    axis_meta.master    m_axis_close_connection,
+
+    axis_meta.slave     s_axis_notifications,
+    axis_meta.master    m_axis_read_package,
+    
+    axis_meta.slave     s_axis_rx_metadata,
+    axi_stream.slave    s_axis_rx_data,
+    
+    axis_meta.master    m_axis_tx_metadata,
+    axi_stream.master   m_axis_tx_data,
+    axis_meta.slave     s_axis_tx_status,
+    
+    /* NETWORK - UDP/IP INTERFACE */
+    axis_meta.slave     s_axis_udp_rx_metadata,
+    axi_stream.slave    s_axis_udp_rx_data,
+    axis_meta.master    m_axis_udp_tx_metadata,
+    axi_stream.master   m_axis_udp_tx_data,
+
+    /* NETWORK - RDMA INTERFACE */
+    axis_meta.slave             s_axis_roce_rx_read_cmd,
+    axis_meta.slave             s_axis_roce_rx_write_cmd,
+    axi_stream.slave            s_axis_roce_rx_write_data,
+    axis_meta.master            m_axis_roce_tx_meta,
+    axi_stream.master           m_axis_roce_tx_data,
+
+    /* MEMORY INTERFACE */
+    // read command
+    axis_mem_cmd.master     m_axis_mem_read_cmd[NUM_DDR_CHANNELS],
+    // read status
+    axis_mem_status.slave   s_axis_mem_read_status[NUM_DDR_CHANNELS],
+    // read data stream
+    axi_stream.slave        s_axis_mem_read_data[NUM_DDR_CHANNELS],
+    
+    // write command
+    axis_mem_cmd.master     m_axis_mem_write_cmd[NUM_DDR_CHANNELS],
+    // write status
+    axis_mem_status.slave   s_axis_mem_write_status[NUM_DDR_CHANNELS],
+    // write data stream
+    axi_stream.master       m_axis_mem_write_data[NUM_DDR_CHANNELS],
+    
+    /* DMA INTERFACE */
+    axis_mem_cmd.master     m_axis_dma_read_cmd,
+    axis_mem_cmd.master     m_axis_dma_write_cmd,
+
+    axi_stream.slave        s_axis_dma_read_data,
+    axi_stream.master       m_axis_dma_write_data
+
+);
+
+
+//Chose user clock
+assign user_clk = ${ROLE_CLK}_clk;
+assign user_aresetn = ${ROLE_CLK}_aresetn;
+
+axis_mem_cmd    axis_dma_read_cmd();
+axis_mem_cmd    axis_dma_write_cmd();
+axi_stream      axis_dma_read_data();
+axi_stream      axis_dma_write_data();
+
+${ROLE_NAME} #(
+    .NUM_ROLE_DDR_CHANNELS(NUM_DDR_CHANNELS - NUM_TCP_CHANNELS)
+) user_role (
+    .user_clk(user_clk),
+    .user_aresetn(user_aresetn),
+    .pcie_clk(pcie_clk),
+    .pcie_aresetn(pcie_aresetn),
+
+    /* CONTROL INTERFACE */
+    // LITE interface
+    .s_axil         (s_axil),
+
+    /* NETWORK - TCP/IP INTERFACWE */
+    .m_axis_listen_port(m_axis_listen_port),
+    .s_axis_listen_port_status(s_axis_listen_port_status),
+    .m_axis_open_connection(m_axis_open_connection),
+    .s_axis_open_status(s_axis_open_status),
+    .m_axis_close_connection(m_axis_close_connection),
+    .s_axis_notifications(s_axis_notifications),
+    .m_axis_read_package(m_axis_read_package),
+    .s_axis_rx_metadata(s_axis_rx_metadata),
+    .s_axis_rx_data(s_axis_rx_data),
+    .m_axis_tx_metadata(m_axis_tx_metadata),
+    .m_axis_tx_data(m_axis_tx_data),
+    .s_axis_tx_status(s_axis_tx_status),
+    
+    /* NETWORK - UDP/IP INTERFACE */
+    .s_axis_udp_rx_metadata(s_axis_udp_rx_metadata),
+    .s_axis_udp_rx_data(s_axis_udp_rx_data),
+    .m_axis_udp_tx_metadata(m_axis_udp_tx_metadata),
+    .m_axis_udp_tx_data(m_axis_udp_tx_data),
+
+    /* NETWORK - RDMA INTERFACWE */
+    .s_axis_roce_rx_read_cmd(s_axis_roce_rx_read_cmd),
+    .s_axis_roce_rx_write_cmd(s_axis_roce_rx_write_cmd),
+    .s_axis_roce_rx_write_data(s_axis_roce_rx_write_data),
+    .m_axis_roce_tx_meta(m_axis_roce_tx_meta),
+    .m_axis_roce_tx_data(m_axis_roce_tx_data),
+
+
+    /* MEMORY INTERFACE */
+    .m_axis_mem_read_cmd(m_axis_mem_read_cmd),
+    .m_axis_mem_write_cmd(m_axis_mem_write_cmd),
+    .s_axis_mem_read_data(s_axis_mem_read_data),
+    .m_axis_mem_write_data(m_axis_mem_write_data),
+    .s_axis_mem_read_status(s_axis_mem_read_status),
+    .s_axis_mem_write_status(s_axis_mem_write_status),
+
+    /* DMA INTERFACE */
+    .m_axis_dma_read_cmd    (axis_dma_read_cmd),
+    .m_axis_dma_write_cmd   (axis_dma_write_cmd),
+
+    .s_axis_dma_read_data   (axis_dma_read_data),
+    .m_axis_dma_write_data  (axis_dma_write_data)
+
+);
+
+
+//Axi slice registers, due to HLS 19.1
+axis_register_slice_96 dma_read_cmd_slice (
+  .aclk(user_clk),
+  .aresetn(user_aresetn),
+  .s_axis_tvalid(axis_dma_read_cmd.valid),
+  .s_axis_tready(axis_dma_read_cmd.ready),
+  .s_axis_tdata({axis_dma_read_cmd.length, axis_dma_read_cmd.address}),
+  .m_axis_tvalid(m_axis_dma_read_cmd.valid),
+  .m_axis_tready(m_axis_dma_read_cmd.ready),
+  .m_axis_tdata({m_axis_dma_read_cmd.length, m_axis_dma_read_cmd.address})
+);
+
+axis_register_slice_96 dma_write_cmd_slice (
+  .aclk(user_clk),
+  .aresetn(user_aresetn),
+  .s_axis_tvalid(axis_dma_write_cmd.valid),
+  .s_axis_tready(axis_dma_write_cmd.ready),
+  .s_axis_tdata({axis_dma_write_cmd.length, axis_dma_write_cmd.address}),
+  .m_axis_tvalid(m_axis_dma_write_cmd.valid),
+  .m_axis_tready(m_axis_dma_write_cmd.ready),
+  .m_axis_tdata({m_axis_dma_write_cmd.length, m_axis_dma_write_cmd.address})
+);
+
+axis_register_slice_512 dma_read_data_slice (
+  .aclk(user_clk),
+  .aresetn(user_aresetn),
+  .s_axis_tvalid(s_axis_dma_read_data.valid),
+  .s_axis_tready(s_axis_dma_read_data.ready),
+  .s_axis_tdata(s_axis_dma_read_data.data),
+  .s_axis_tkeep(s_axis_dma_read_data.keep),
+  .s_axis_tlast(s_axis_dma_read_data.last),
+  .m_axis_tvalid(axis_dma_read_data.valid),
+  .m_axis_tready(axis_dma_read_data.ready),
+  .m_axis_tdata(axis_dma_read_data.data),
+  .m_axis_tkeep(axis_dma_read_data.keep),
+  .m_axis_tlast(axis_dma_read_data.last)
+);
+
+axis_register_slice_512 dma_write_data_slice (
+  .aclk(user_clk),
+  .aresetn(user_aresetn),
+  .s_axis_tvalid(axis_dma_write_data.valid),
+  .s_axis_tready(axis_dma_write_data.ready),
+  .s_axis_tdata(axis_dma_write_data.data),
+  .s_axis_tkeep(axis_dma_write_data.keep),
+  .s_axis_tlast(axis_dma_write_data.last),
+  .m_axis_tvalid(m_axis_dma_write_data.valid),
+  .m_axis_tready(m_axis_dma_write_data.ready),
+  .m_axis_tdata(m_axis_dma_write_data.data),
+  .m_axis_tkeep(m_axis_dma_write_data.keep),
+  .m_axis_tlast(m_axis_dma_write_data.last)
+);
+
+endmodule
+`default_nettype wire

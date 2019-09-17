@@ -1,0 +1,73 @@
+set proj_name "${CMAKE_PROJECT_NAME}"
+set root_dir ${CMAKE_SOURCE_DIR}
+set davos_root_dir ${CMAKE_CURRENT_SOURCE_DIR}
+set proj_dir ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}-project
+set src_dir $davos_root_dir/hdl
+set ip_dir $davos_root_dir/ip
+set ip_repo ${CMAKE_SOURCE_DIR}/iprepo
+set constraints_dir $davos_root_dir/constraints
+
+#Check if iprepo is available
+if { [file isdirectory $ip_repo] } {
+	set lib_dir "$ip_repo"
+} else {
+	puts "iprepo directory could not be found."
+	exit 1
+}
+# Create project
+create_project $proj_name $proj_dir
+
+# Set project properties
+set obj [get_projects $proj_name]
+set_property part {${FPGA_PART}} $obj
+set_property "target_language" "Verilog" $obj
+
+set_property IP_REPO_PATHS $lib_dir [current_fileset]
+update_ip_catalog
+
+# Add include files
+set_property include_dirs ${CMAKE_BINARY_DIR} [current_fileset]
+#add_files ${CMAKE_BINARY_DIR}/davos_config.svh
+#set_property file_type "Verilog Header" [get_files davos_config.svh]
+
+# Add sources
+add_files $src_dir/common
+add_files -norecurse $src_dir/${FPGA_FAMILY}
+add_files $src_dir/${FPGA_FAMILY}/${DEVICE_NAME}
+
+
+set_property top davos_top [current_fileset]
+
+add_files -fileset constrs_1 $constraints_dir/${DEVICE_NAME}.xdc
+update_compile_order -fileset sources_1
+
+#create ip directory
+set device_ip_dir ${CMAKE_SOURCE_DIR}/ip/${DEVICE_NAME}
+file mkdir $device_ip_dir
+
+
+#Create IPs
+
+#Network interface
+source ${CMAKE_CURRENT_SOURCE_DIR}/scripts/network_${FPGA_FAMILY}.tcl
+
+#AXI Infrastructure: FIFOs, Register slices, Interconnect
+source ${CMAKE_CURRENT_SOURCE_DIR}/scripts/axi_infrastructure.tcl
+
+#Network stack
+#Add HDL files of network stack
+#TODO move to other repo
+add_files $davos_root_dir/ext/network/hdl/common
+add_files $davos_root_dir/ext/network/ip/SmartCamCtl.dcp
+source ${CMAKE_CURRENT_SOURCE_DIR}/ext/network/scripts/network_stack.tcl
+
+#Memory interface
+source ${CMAKE_CURRENT_SOURCE_DIR}/scripts/dram_${FPGA_FAMILY}.tcl
+
+#DMA interface
+source ${CMAKE_CURRENT_SOURCE_DIR}/scripts/dma_${FPGA_FAMILY}.tcl
+
+#Role
+add_files ${CMAKE_BINARY_DIR}/role_wrapper.sv
+source ${CMAKE_SOURCE_DIR}/scripts/${ROLE_NAME}.tcl
+

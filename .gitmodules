@@ -1,0 +1,3 @@
+[submodule "ext/network"]
+	path = ext/network
+	url = git@github.com:fpgasystems/fpga-network-stack.git
