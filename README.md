@@ -1,5 +1,18 @@
 # DavOS (Distributed Accelerator OS)
 
+
+### Prerequisites
+- Xilinx Vivado 2019.1
+- cmake 3.0 or higher
+- Linux OS
+- Xilinx licenses for board/chip and Ethernet cores
+
+Supported boards (out of the box)
+- Xilinx VC709
+- Xilinx VCU118
+- Alpha Data ADM-PCIE-7V3
+
+
 ## Build project
 
 1. Initialize submodules
@@ -20,7 +33,9 @@ $ cmake .. -DDEVICE_NAME=vcu118 -DTCP_STACK_EN=1 -DVIVADO_ROOT_DIR=/opt/Xilinx/V
 
 ```
 All options:
+
 | Name                  | Values                | Desription                                                              |
+| --------------------- | --------------------- | ----------------------------------------------------------------------- |
 | DEVICE_NAME           | <vc709,vcu118,adm7v3> | Supported devices                                                       |
 | NETWORK_BANDWIDTH     | <10,100>              | Bandwidth of the Ethernet interface in Gbit/s, default depends on board |
 | ROLE_NAME             | <name>                | Name of the role, default:. benchmark_role                              |
