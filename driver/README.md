@@ -9,7 +9,7 @@ $ apt install build-essential linux-headers-generic
 
 2. Build kernel module
 ```
-$ cd dma/driver/driver
+$ cd driver
 $ make
 ```
 
@@ -57,7 +57,7 @@ $ apt install libboost-program-options-dev cmake
 ```
 2. Compile example application
 ```
-$ cd dma-driver/sw
+$ cd sw
 $ mkdir build && cd build
 $ cmake ../src
 $ make
@@ -66,23 +66,23 @@ $ make
 ## Run Example Application/Benchmark
 1. Load kernel module if not loaded yet.
 ```
-$ cd dma-driver/driver
-$ insmod xdma_driver.ko
+$ cd driver
+$ sudo insmod xdma_driver.ko
 ```
 2. Run the Application (requires root permission)
 ```
-$ cd dma-driver/sw/build
-$ ./dma-example
+$ cd sw/build
+$ sudo ./dma-example
 ```
 
 ## Read FPGA Debug Registers
 1. Load kernel module if not loaded yet.
 ```
-$ cd dma-driver/driver
-$ insmod xdma_driver.ko
+$ cd driver
+$ sudo insmod xdma_driver.ko
 ```
 2. Run the Application (requires root permission)
 ```
-$ cd dma-driver/sw/build
-$ ./debug
+$ cd sw/build
+$ sudo ./debug
 ```
