@@ -283,7 +283,7 @@ static int xdma_mmap(struct file *file, struct vm_area_struct *vma)
   /* complete resource */
   phys = pci_resource_start(inst->pci_dev, inst->user_bar_idx);
   psize =   pci_resource_len(inst->pci_dev, inst->user_bar_idx);
-  printk(KERN_INFO "physical bar address %p, size %lu\n", phys, psize);
+  printk(KERN_INFO "physical bar address %pa, size %llu\n", &phys, psize);
 
   if (vsize > psize)
     return -EINVAL;
@@ -300,7 +300,7 @@ static int xdma_mmap(struct file *file, struct vm_area_struct *vma)
   /* make MMIO accessible to user space */
   rc = io_remap_pfn_range(vma, vma->vm_start, phys >> PAGE_SHIFT,
       vsize, vma->vm_page_prot);
-  printk(KERN_INFO "vma=0x%p, vma->vm_start=0x%lx, phys=0x%lx, size=%lu = %d\n",
+  printk(KERN_INFO "vma=0x%p, vma->vm_start=0x%lx, phys=0x%llx, size=%lu = %d\n",
     vma, vma->vm_start, phys >> PAGE_SHIFT, vsize, rc);
 
   if (rc)
@@ -347,7 +347,7 @@ static int xdma_bypass_mmap(struct file *file, struct vm_area_struct *vma)
   /* complete resource */
   phys = pci_resource_start(inst->pci_dev, inst->bypass_bar_idx);
   psize =   pci_resource_len(inst->pci_dev, inst->bypass_bar_idx);
-  printk(KERN_INFO "physical bar address %p, size %lu\n", phys, psize);
+  printk(KERN_INFO "physical bar address %pa, size %llu\n", &phys, psize);
 
   if (vsize > psize)
     return -EINVAL;
@@ -364,7 +364,7 @@ static int xdma_bypass_mmap(struct file *file, struct vm_area_struct *vma)
   /* make MMIO accessible to user space */
   rc = io_remap_pfn_range(vma, vma->vm_start, phys >> PAGE_SHIFT,
       vsize, vma->vm_page_prot);
-  printk(KERN_INFO "vma=0x%p, vma->vm_start=0x%lx, phys=0x%lx, size=%lu = %d\n",
+  printk(KERN_INFO "vma=0x%p, vma->vm_start=0x%lx, phys=0x%llx, size=%lu = %d\n",
     vma, vma->vm_start, phys >> PAGE_SHIFT, vsize, rc);
 
   if (rc)
@@ -393,6 +393,11 @@ static int ioctl_do_buffer_set(struct dev_inst *inst, unsigned long arg)
 {
   int rc;
   struct xdma_huge huge;
+  unsigned long npages;
+  unsigned long buffer_start;
+  unsigned long bufsize;
+  unsigned npage_count = 0;
+  int i;
 
   printk(KERN_INFO "IOCTL_XDMA_BUFFER_SET\n");
   rc = copy_from_user(&huge, (struct xdma_huge*)arg, sizeof(struct xdma_huge));
@@ -400,13 +405,12 @@ static int ioctl_do_buffer_set(struct dev_inst *inst, unsigned long arg)
     return rc;
   }
 
-  printk(KERN_INFO "huge addr %p, size %d\n", huge.addr, huge.size);
-  unsigned long npages;
-  unsigned long buffer_start = huge.addr;
-  unsigned long bufsize = huge.size;
+  printk(KERN_INFO "huge addr 0x%lx, size %lu\n", huge.addr, huge.size);
+  buffer_start = huge.addr;
+  bufsize = huge.size;
 
   npages = 1 + (bufsize - 1) / PAGE_SIZE;
-  printk(KERN_INFO "req npages %d\n", npages);
+  printk(KERN_INFO "req npages %lu\n", npages);
   printk(KERN_INFO "dev_inst ptr: %p\n", inst);
   inst->huge_pages = vmalloc(npages * sizeof(struct page*));
 
@@ -423,24 +427,21 @@ static int ioctl_do_buffer_set(struct dev_inst *inst, unsigned long arg)
     return -1;
   }
   npages = rc;
-  printk(KERN_INFO "recv npages %d\n", npages);
-  printk(KERN_INFO "size of unsigned long: %i\n", sizeof(unsigned long));
+  printk(KERN_INFO "recv npages %lu\n", npages);
+  printk(KERN_INFO "size of unsigned long: %lu\n", sizeof(unsigned long));
 
-  int i = 0;
-  int j = 0;
-  for (i; i < npages; i++) {
-    SetPageReserved(inst->huge_pages[i]);
-    unsigned long dma_addr = page_to_phys(inst->huge_pages[i]);
-    if (i % 512 == 0) {
-      //printk(KERN_INFO "huge dma_addr: %p\n", dma_addr);
-      j++;
-    }
+  for (i=0; i < npages; i++) {
+      SetPageReserved(inst->huge_pages[i]);
+      if (i % 512 == 0) {
+        //printk(KERN_INFO "huge dma_addr: %p\n", page_to_phys(inst->huge_pages[i]));
+        npage_count++;
+      }
   }
   inst->huge_user_addr = huge.addr;
   inst->huge_size = npages * 4096;
   inst->huge_npages = npages;
-  inst->huge_hnpages = j;
-  printk(KERN_INFO "huge npages: %lu\n", j);
+  inst->huge_hnpages = npage_count;
+  printk(KERN_INFO "huge npages: %u\n", npage_count);
 
   return 0;
 }
@@ -450,6 +451,8 @@ static int ioctl_do_mapping_get(struct dev_inst *inst, unsigned long arg)
   int rc;
   struct xdma_huge_mapping map;
   unsigned long* dma_addr;
+  int i, j;
+  int npages;
 
   printk(KERN_INFO "IOCTL_MAPPING_GET\n");
   rc = copy_from_user(&map, (struct xdma_huge_mapping*)arg, sizeof(struct xdma_huge_mapping));
@@ -462,18 +465,16 @@ static int ioctl_do_mapping_get(struct dev_inst *inst, unsigned long arg)
   }
 
   map.npages = inst->huge_hnpages;
-  int i = 0;
-  int j = 0;
-  int npages = inst->huge_npages;
+  npages = inst->huge_npages;
   dma_addr = kmalloc(sizeof(unsigned long*) * map.npages, GFP_KERNEL);
-  for (i; i < npages; i++) { //TODO += 512
+  for (i = 0, j = 0; i < npages; i++) { //TODO += 512
     if (i % 512 == 0) {
       //printk(KERN_INFO "dma_addr: %p\n", page_to_phys(inst->huge_pages[i]));
       dma_addr[j] = page_to_phys(inst->huge_pages[i]);
       j++;
     }
   }
-  printk(KERN_INFO "copy to user size: %i\n", sizeof(struct xdma_huge_mapping));
+  printk(KERN_INFO "copy to user size: %lu\n", sizeof(struct xdma_huge_mapping));
 
   if (copy_to_user((struct xdma_huge_mapping*)arg, &map, sizeof(struct xdma_huge_mapping))) {
     goto error;
@@ -493,14 +494,13 @@ error:
 
 static int ioctl_release_mapping(struct dev_inst *inst)
 {
-  int rc;
-  printk(KERN_INFO "IOCTL_XDMA_RELEASE");
   int npages = inst->huge_npages;
-  int i = 0;
-  int j = 0;
-  for (i; i < npages; i++) {
-    unsigned long pg = inst->huge_pages[i];
-    printk(KERN_INFO "release dma_addr: %lx\n", pg);
+  int i;
+
+  printk(KERN_INFO "IOCTL_XDMA_RELEASE");
+  for (i = 0; i < npages; i++) {
+    struct page *const  pg = inst->huge_pages[i];
+    printk(KERN_INFO "release dma_addr: %p\n", pg);
     down_read(&current->mm->mmap_sem);
     if (!PageReserved(pg)) {
       SetPageDirty(pg);
@@ -952,7 +952,7 @@ set_dma_mask(struct pci_dev *pdev) {
 }
 
 /* channel_interrupts_enable -- Enable interrupts we are interested in */
-static void
+static __attribute__((unused)) void
 channel_interrupts_enable(struct dev_inst *inst, u32 mask) {
     struct interrupt_regs *reg = (struct interrupt_regs *)
         (inst->bar[inst->config_bar_idx] + XDMA_OFS_INT_CTRL);
@@ -961,7 +961,7 @@ channel_interrupts_enable(struct dev_inst *inst, u32 mask) {
 }
 
 /* channel_interrupts_disable -- Disable interrupts we not interested in */
-static void
+static __attribute__((unused)) void
 channel_interrupts_disable(struct dev_inst *inst, u32 mask) {
     struct interrupt_regs *reg = (struct interrupt_regs *)
         (inst->bar[inst->config_bar_idx] + XDMA_OFS_INT_CTRL);
@@ -970,7 +970,7 @@ channel_interrupts_disable(struct dev_inst *inst, u32 mask) {
 }
 
 /* read_interrupts -- Print the interrupt controller status */
-static u32
+static __attribute__((unused)) u32
 read_interrupts(struct dev_inst *inst) {
     struct interrupt_regs *reg = (struct interrupt_regs *)
         (inst->bar[inst->config_bar_idx] + XDMA_OFS_INT_CTRL);
@@ -1031,7 +1031,7 @@ write_msix_vectors(struct dev_inst *inst) {
     iowrite32(reg_val, &int_regs->channel_msi_vector[1]);
 }
 
-static int
+static __attribute__((unused)) int
 msix_irq_setup(struct dev_inst *inst) {
     BUG_ON(!inst);
     write_msix_vectors(inst);
@@ -1136,7 +1136,6 @@ probe_for_engine(struct dev_inst *inst, int dir_to_dev, int channel) {
 static int
 probe_engines(struct dev_inst *inst) {
     int channel, h2c_offset, c2h_offset;//, sgdma_offset;
-    u32 reg_value;
 
     BUG_ON(!inst);
 
@@ -1323,10 +1322,8 @@ probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     read_interrupts(inst);
     misc_deregister(&misc_dev_node);*/
 err_misc_register:
-err_char:
 err_engines:
     irq_teardown(inst);
-err_interrupts:
 err_mask:
     unmap_bars(inst, pdev);
 err_map:
