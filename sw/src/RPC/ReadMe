@@ -1,0 +1,5 @@
+The files that ends with *.rpc.cpp are dedicated for the RPC-based baselines. They leverage TCP-based RPC to do the remote procedure calling on the CPU, instead of STROM on the FPGA.
+
+ The pro is that CPU cores are much closer to the memory than the FPGA, so the single reversal on the CPU can be faster than that on the FPGA. 
+
+The con is that the TCP RTT is much longer than that of Roce.  
