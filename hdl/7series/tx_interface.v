@@ -83,7 +83,7 @@ wire[63:0] axis_wr_tdata;
 wire[7:0] axis_wr_tkeep;
 
 assign axi_str_tready_to_fifo = (!cmd_fifo_full) & axis_wr_tready;
-assign axis_wr_tvalid = axi_str_tvalid_from_fifo & axi_str_tready_to_fifo;
+assign axis_wr_tvalid = axi_str_tvalid_from_fifo & !cmd_fifo_full;
 assign axis_wr_tlast = axi_str_tlast_from_fifo;
 assign axis_wr_tdata = axi_str_tdata_from_fifo;
 assign axis_wr_tkeep = axi_str_tkeep_from_fifo;
